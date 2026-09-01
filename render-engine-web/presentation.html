@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superhero Live 3D - Tela de Apresentação</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="css/style.css?v=3.1.0">
+    
+    <style>
+        /* Dedicated Clean Presentation Styles */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            background: #04060a;
+            cursor: none; /* Auto-hide cursor on live stage for clean viewing */
+        }
+        
+        body:hover {
+            cursor: default;
+        }
+
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+        }
+
+        /* Minimalist Stage Loader */
+        #loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(4, 6, 10, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            z-index: 999;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.5s;
+        }
+
+        #loader-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .loader-ring {
+            width: 50px;
+            height: 50px;
+            border: 3px solid rgba(0, 240, 255, 0.15);
+            border-top: 3px solid #00f0ff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+        }
+
+        .loader-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: #94a3b8;
+            text-transform: uppercase;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <!-- Three.js Core & Loaders -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+    <!-- Clean 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Minimalist initial loading spinner (auto-hides when model is ready) -->
+    <div id="loader-overlay">
+        <div class="loader-ring"></div>
+        <div class="loader-text">SINCRONIZANDO PALCO 3D...</div>
+    </div>
+
+    <!-- Application Script Modules -->
+    <script src="js/network/stream_client.js?v=4.1.0"></script>
+    <script src="js/network/sync_bridge.js?v=4.1.0"></script>
+    <script src="js/retargeting/ik_solver.js?v=4.1.0"></script>
+    <script src="js/retargeting/bone_mapper.js?v=4.1.0"></script>
+    <script src="js/vfx/power_effects.js?v=4.1.0"></script>
+    <script src="js/scene/character_loader.js?v=4.1.0"></script>
+    <script src="js/scene/stage.js?v=4.1.0"></script>
+    <script src="js/presentation_app.js?v=4.1.0"></script>
+</body>
+</html>

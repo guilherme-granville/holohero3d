@@ -1,0 +1,37 @@
+# ==============================================================================
+# SUPERHERO LIVE EXPERIENCE 3D - VISION ENGINE CONFIGURATION
+# ==============================================================================
+
+camera:
+  device_index: 0          # Índice da webcam (0 para câmera padrão)
+  width: 1280              # Largura de captura HD 720p (1280x720) nítida e ampla
+  height: 720              # Altura de captura HD
+  target_fps: 30           # FPS padrão da webcam (30 FPS estável)
+  api_preference: "MSMF"   # MSMF (Media Foundation) nativo do Windows para máximo FPS em HD
+  buffer_size: 1           # Buffer circular de 1 frame para latência mínima
+
+pose:
+  model_complexity: 1      # 1=Full Holistic (alta precisão para mãos, dedos, cabeça e 3D)
+  smooth_landmarks: true   # Suavização interna do MediaPipe
+  enable_segmentation: false # Desativar segmentação para liberar até 40ms por frame e atingir 60 FPS
+  smooth_segmentation: false
+  min_detection_confidence: 0.6
+  min_tracking_confidence: 0.6
+
+filter:
+  # One Euro Filter parameters para controle de jitter e lag
+  min_cutoff: 1.2          # Frequência de corte mínima (Hz)
+  beta: 0.02               # Coeficiente de velocidade - resposta rápida em movimentos ágeis
+  d_cutoff: 1.0            # Frequência de corte de derivada (Hz)
+
+network:
+  host: "0.0.0.0"          # Escutar em todas as interfaces
+  port: 8765               # Porta do servidor WebSocket
+  broadcast_fps: 60        # Frequência máxima de envio dos pacotes de pose
+
+debug:
+  show_preview: true       # Exibir janela OpenCV com visualização do esqueleto
+  window_name: "Superhero Vision Engine - Debug Monitor"
+  draw_landmarks: true
+  draw_segmentation_mask: false
+  show_fps: true

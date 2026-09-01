@@ -1,0 +1,14 @@
+==============================================================================
+📁 PASTA DE MODELOS 3D (.GLB / .GLTF) - SUPERHERO LIVE EXPERIENCE 3D
+==============================================================================
+
+Coloque todos os seus arquivos de modelo 3D (.glb ou .gltf) diretamente nesta pasta:
+c:\Users\lgvip\OneDrive\Desktop\Tralhas\3d-system\Models\
+
+Como usar seus modelos:
+1. Copie seu arquivo .glb para cá (ex: liam.glb, spiderman.glb, heroi.glb).
+2. Na tela do sistema aberta no navegador (http://127.0.0.1:8000), basta clicar no botão:
+   📁 IMPORTAR 3D (.GLB) e selecionar o arquivo desta pasta!
+   (Ou arrastar o arquivo .glb direto da pasta para dentro da janela do navegador!)
+
+==============================================================================

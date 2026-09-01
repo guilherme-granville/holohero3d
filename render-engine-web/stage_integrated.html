@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superhero Live Experience 3D - Live Stage Híbrido</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=3.1.0">
+    
+    <!-- Three.js Core & Loaders -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+
+<body>
+    <!-- 3D Canvas Viewport -->
+    <div id="canvas-container"></div>
+
+    <!-- Main Experience HUD Overlay -->
+    <div id="experience-hud">
+        <!-- Top Left Brand & Status -->
+        <header class="hud-top-left">
+            <div class="brand-badge">
+                <span class="pulse-dot"></span>
+                <span class="brand-text">SUPERHERO LIVE 3D</span>
+            </div>
+            <div class="status-badge" id="tracking-status">
+                <span class="status-icon">⚡</span>
+                <span id="status-label">CONECTANDO...</span>
+            </div>
+            <div class="active-character-pill" id="active-character-pill">
+                <span class="pill-icon">🦸</span>
+                <span id="active-char-name">Carregando Personagem...</span>
+            </div>
+        </header>
+
+        <!-- Top Right Main Navigation & Quick Action Bar -->
+        <nav class="hud-top-right">
+            <button id="btn-open-characters" class="hud-btn btn-hero-glow" title="Escolher Personagem 3D (C)">
+                <span class="btn-icon">🎭</span>
+                <span>TROCAR PERSONAGEM</span>
+            </button>
+            <button id="btn-quick-power" class="hud-btn btn-power-glow" title="Disparar Superpoder (Espaço)">
+                <span class="btn-icon">💥</span>
+                <span>DISPARAR PODER</span>
+            </button>
+            <button id="btn-quick-import" class="hud-btn btn-glass" title="Importar Modelo 3D (.GLB/.GLTF)">
+                <span class="btn-icon">📁</span>
+                <span>IMPORTAR</span>
+            </button>
+            <button id="btn-open-settings" class="hud-btn btn-glass" title="Abrir Configurações (O)">
+                <span class="btn-icon">⚙️</span>
+                <span>CONFIGURAÇÕES</span>
+            </button>
+            <button id="btn-toggle-fullscreen" class="hud-btn btn-glass" title="Alternar Tela Cheia (F)">
+                <span class="btn-icon">⛶</span>
+            </button>
+            <button id="btn-toggle-cinema" class="hud-btn btn-glass" title="Ocultar Interface / Modo Cinema (H)">
+                <span class="btn-icon">👁️</span>
+            </button>
+        </nav>
+
+        <!-- Bottom Telemetry & Controls Hint -->
+        <footer class="hud-bottom-center">
+            <div class="telemetry-bar">
+                <div class="stat-item">
+                    <span class="stat-title">FPS 3D</span>
+                    <span class="stat-value" id="hud-fps">60</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-title">LATÊNCIA</span>
+                    <span class="stat-value" id="hud-latency">-- ms</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item">
+                    <span class="stat-title">STATUS</span>
+                    <span class="stat-value" id="hud-tracking">AGUARDANDO...</span>
+                </div>
+            </div>
+
+            <!-- Shortcut Navigation Chips -->
+            <div class="shortcuts-row">
+                <span class="shortcut-chip"><kbd>C</kbd> Trocar Personagem</span>
+                <span class="shortcut-chip"><kbd>ESPAÇO</kbd> Superpoder</span>
+                <span class="shortcut-chip"><kbd>F</kbd> Tela Cheia</span>
+                <span class="shortcut-chip"><kbd>H</kbd> Ocultar Interface</span>
+                <span class="shortcut-chip"><kbd>O</kbd> Configurações</span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Hidden Input for Custom 3D Files -->
+    <input type="file" id="file-character" accept=".glb,.gltf" style="display:none;">
+
+    <!-- CHARACTER SELECTION MODAL -->
+    <div id="character-modal" class="modal-overlay">
+        <div class="modal-card modal-large">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-emoji">🎭</span>
+                    <div>
+                        <h2>SELECIONAR PERSONAGEM 3D</h2>
+                        <p class="modal-subtitle">Modelos disponíveis automaticamente na pasta <strong>models/</strong> e heróis padrão</p>
+                    </div>
+                </div>
+                <button id="btn-close-char-modal" class="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="filter-tabs">
+                <button class="filter-tab active" data-filter="all">🌟 Todos</button>
+                <button class="filter-tab" data-filter="rigged">🦴 Articulados / Rigged</button>
+                <button class="filter-tab" data-filter="heroes">🦸 Super-Heróis</button>
+                <button class="filter-tab" data-filter="procedural">⚡ Padrão 3D</button>
+            </div>
+
+            <div class="modal-body">
+                <div id="models-grid" class="models-grid">
+                    <div class="loading-models">
+                        <div class="spinner"></div>
+                        <span>Carregando modelos 3D da pasta models...</span>
+                    </div>
+                </div>
+
+                <div class="modal-drop-zone" id="modal-drop-zone">
+                    <span class="drop-zone-icon">📥</span>
+                    <div>
+                        <strong>Arraste qualquer outro arquivo .GLB / .GLTF aqui</strong>
+                        <p>O arquivo será carregado e ajustado automaticamente na cena</p>
+                    </div>
+                    <button id="btn-browse-file" class="btn-browse">Escolher Arquivo...</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SYSTEM SETTINGS MODAL -->
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-card modal-medium">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-emoji">⚙️</span>
+                    <div>
+                        <h2>CONFIGURAÇÕES DO SISTEMA</h2>
+                        <p class="modal-subtitle">Calibração de movimento, efeitos visuais e palco 3D</p>
+                    </div>
+                </div>
+                <button id="btn-close-settings-modal" class="modal-close-btn">&times;</button>
+            </div>
+
+            <div class="modal-body settings-body">
+                <div class="settings-section">
+                    <h3 class="section-title">👤 MOVIMENTAÇÃO & PROFUNDIDADE</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="depth-sensitivity">Sensibilidade Frente / Trás (Eixo Z):</label>
+                            <span class="setting-desc">Ajusta o quanto o personagem avança ou recua ao caminhar</span>
+                        </div>
+                        <input type="range" id="depth-sensitivity" min="0.2" max="2.5" step="0.1" value="1.2">
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="lateral-sensitivity">Sensibilidade Lateral (Eixo X):</label>
+                            <span class="setting-desc">Ajusta o deslocamento para esquerda e direita</span>
+                        </div>
+                        <input type="range" id="lateral-sensitivity" min="0.2" max="2.5" step="0.1" value="1.0">
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="avatar-scale">Escala do Personagem:</label>
+                            <span class="setting-desc">Tamanho geral do modelo 3D</span>
+                        </div>
+                        <input type="range" id="avatar-scale" min="0.5" max="1.8" step="0.05" value="1.0">
+                    </div>
+
+                    <div class="setting-toggle-row">
+                        <div class="setting-info">
+                            <label>Espelhar Câmera:</label>
+                            <span class="setting-desc">Inverte os braços/pernas para modo espelho natural</span>
+                        </div>
+                        <label class="switch">
+                            <input type="checkbox" id="chk-mirror">
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+
+                    <div class="rotation-actions-row">
+                        <span class="setting-info-label">Correção de Rotação Manual:</span>
+                        <div class="btn-group">
+                            <button type="button" id="btn-rotate-x" class="btn-action" title="Girar modelo em 90 graus no eixo X">🔄 Girar X 90°</button>
+                            <button type="button" id="btn-rotate-y" class="btn-action" title="Girar modelo em 90 graus no eixo Y">🔄 Girar Y 90°</button>
+                            <button type="button" id="btn-rotate-180" class="btn-action" title="Inverter modelo em 180 graus (Frente / Costas)">🔄 Inverter 180°</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">💥 SUPERPODERES (VFX)</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="effect-select">Efeito Ativo:</label>
+                            <span class="setting-desc">Estilo das partículas e energia disparada</span>
+                        </div>
+                        <select id="effect-select" class="custom-select">
+                            <option value="cosmic_burst">🌌 Cosmic Energy Burst (Violeta / Ciano)</option>
+                            <option value="thunder_lightning">⚡ Thunder Lightning Aura (Relâmpagos Dourados)</option>
+                            <option value="flaming_fire">🔥 Flaming Firestorm (Chamas Ardentes)</option>
+                            <option value="cosmic_web">🕸️ Cosmic Web Shockwave (Teias de Plasma)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="particle-count">Volume de Partículas:</label>
+                            <span class="setting-desc">Densidade das partículas nos efeitos</span>
+                        </div>
+                        <input type="range" id="particle-count" min="500" max="6000" step="500" value="3000">
+                    </div>
+
+                    <button id="btn-test-power" class="btn-power-full">💥 DISPARAR PODER DE TESTE</button>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">🌌 PALCO 3D & ILUMINAÇÃO</h3>
+                    
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="stage-select">Cenário Virtual:</label>
+                            <span class="setting-desc">Estilo do chão e iluminação do estúdio</span>
+                        </div>
+                        <select id="stage-select" class="custom-select">
+                            <option value="cyber_arena">Cyber Studio Arena (Grade Holográfica Neon)</option>
+                            <option value="cosmic_void">Cosmic Studio (Nebulosa & Estúdio Dark)</option>
+                            <option value="hyper_grid">Hyper Gold Studio (Luzes Douradas PBR)</option>
+                        </select>
+                    </div>
+
+                    <div class="setting-row">
+                        <div class="setting-info">
+                            <label for="light-intensity">Intensidade das Luzes:</label>
+                            <span class="setting-desc">Brilho das luzes PBR no personagem</span>
+                        </div>
+                        <input type="range" id="light-intensity" min="0.5" max="3.0" step="0.1" value="2.5">
+                    </div>
+                </div>
+
+                <div class="settings-section">
+                    <h3 class="section-title">🔗 SERVIDOR DE VISÃO</h3>
+                    <div class="server-status-box">
+                        <div class="server-input-group">
+                            <input type="text" id="ws-url" value="ws://127.0.0.1:8765" spellcheck="false" class="custom-input">
+                            <button id="btn-reconnect" class="btn-primary">Reconectar</button>
+                        </div>
+                        <div class="status-indicator-line">
+                            <span>Status:</span>
+                            <strong id="ws-status-text" class="status-offline">DESCONECTADO</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Application Script Modules -->
+    <script src="js/network/stream_client.js?v=4.1.0"></script>
+    <script src="js/retargeting/ik_solver.js?v=4.1.0"></script>
+    <script src="js/retargeting/bone_mapper.js?v=4.1.0"></script>
+    <script src="js/vfx/power_effects.js?v=4.1.0"></script>
+    <script src="js/scene/character_loader.js?v=4.1.0"></script>
+    <script src="js/scene/stage.js?v=4.1.0"></script>
+    <script src="js/ui/operator_ui.js?v=4.1.0"></script>
+    <script src="js/app.js?v=4.1.0"></script>
+</body>
+
+</html>

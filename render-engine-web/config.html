@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Configuração & Modelos - Superhero Live 3D</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css?v=3.1.0">
+</head>
+
+<body class="dashboard-page">
+    <!-- Top Navigation & Global Header -->
+    <header class="dash-navbar">
+        <div class="dash-nav-left">
+            <div class="brand-badge">
+                <span class="pulse-dot"></span>
+                <span class="brand-text">SUPERHERO LIVE 3D</span>
+            </div>
+            <div class="status-badge" id="tracking-status">
+                <span class="status-icon">⚡</span>
+                <span id="status-label">CONECTANDO AO VISION ENGINE...</span>
+            </div>
+            <div class="active-character-pill" id="active-character-pill">
+                <span class="pill-icon">🦸</span>
+                <span id="active-char-name">Carregando Modelo...</span>
+            </div>
+        </div>
+
+        <div class="dash-nav-right">
+            <button id="btn-reset-camera" class="hud-btn btn-glass" title="Resetar Câmera da Apresentação">
+                <span class="btn-icon">🎥</span>
+                <span>RESETAR CÂMERA</span>
+            </button>
+            <button id="btn-launch-presentation" class="hud-btn btn-hero-glow" title="Abrir Tela de Apresentação Limpa em Nova Janela">
+                <span class="btn-icon">🖥️</span>
+                <span>ABRIR APRESENTAÇÃO (TELÃO)</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Workspace -->
+    <main class="dashboard-content">
+        <!-- Left Column: 3D Models Management & Gallery -->
+        <section class="dash-column models-section">
+            <div class="section-card">
+                <div class="section-card-header">
+                    <div class="header-titles">
+                        <span class="section-emoji">🎭</span>
+                        <div>
+                            <h2>GALERIA & TROCA DE MODELOS 3D</h2>
+                            <p>Clique em qualquer modelo para exibi-lo <strong>instantaneamente</strong> na tela de apresentação.</p>
+                        </div>
+                    </div>
+
+                    <!-- Search Bar -->
+                    <div class="search-box">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="model-search-input" placeholder="Buscar modelo por nome ou categoria..." class="custom-input">
+                    </div>
+                </div>
+
+                <!-- Category Filter Tabs -->
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all">🌟 Todos</button>
+                    <button class="filter-tab" data-filter="rigged">🦴 Articulados / Rigged</button>
+                    <button class="filter-tab" data-filter="heroes">🦸 Super-Heróis</button>
+                    <button class="filter-tab" data-filter="procedural">⚡ Padrão 3D</button>
+                </div>
+
+                <!-- Dynamic Models Grid -->
+                <div class="models-grid-container">
+                    <div id="models-grid" class="models-grid">
+                        <div class="loading-models">
+                            <div class="spinner"></div>
+                            <span>Carregando modelos 3D da pasta models...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Drag & Drop Zone for New 3D Models -->
+                <div class="modal-drop-zone" id="modal-drop-zone">
+                    <span class="drop-zone-icon">📥</span>
+                    <div class="drop-zone-info">
+                        <strong>Importar Novo Modelo (.GLB / .GLTF)</strong>
+                        <p>Arraste e solte o arquivo aqui para carregá-lo instantaneamente na apresentação</p>
+                    </div>
+                    <button id="btn-browse-file" class="btn-browse">Escolher Arquivo...</button>
+                    <input type="file" id="file-character" accept=".glb,.gltf" style="display:none;">
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Settings, Calibration, VFX & Telemetry -->
+        <aside class="dash-column settings-sidebar">
+            <!-- Panel 1: Motion & Calibration -->
+            <div class="settings-section">
+                <h3 class="section-title">👤 MOVIMENTAÇÃO & CALIBRAÇÃO</h3>
+                
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-title-row">
+                            <label for="depth-sensitivity">Sensibilidade Eixo Z (Frente / Trás):</label>
+                            <span class="badge-value" id="val-depth">1.2x</span>
+                        </div>
+                        <span class="setting-desc">Avanço e recuo na cena ao caminhar</span>
+                    </div>
+                    <input type="range" id="depth-sensitivity" min="0.2" max="2.5" step="0.1" value="1.2">
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-title-row">
+                            <label for="lateral-sensitivity">Sensibilidade Eixo X (Lateral):</label>
+                            <span class="badge-value" id="val-lateral">1.0x</span>
+                        </div>
+                        <span class="setting-desc">Deslocamento para esquerda e direita</span>
+                    </div>
+                    <input type="range" id="lateral-sensitivity" min="0.2" max="2.5" step="0.1" value="1.0">
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-title-row">
+                            <label for="avatar-scale">Escala do Modelo 3D:</label>
+                            <span class="badge-value" id="val-scale">1.00x</span>
+                        </div>
+                        <span class="setting-desc">Ajuste do tamanho geral do avatar</span>
+                    </div>
+                    <input type="range" id="avatar-scale" min="0.5" max="2.0" step="0.05" value="1.0">
+                </div>
+
+                <div class="setting-toggle-row">
+                    <div class="setting-info">
+                        <label>Modo Espelho:</label>
+                        <span class="setting-desc">Inverte braços para efeito espelho natural</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="chk-mirror">
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <div class="rotation-actions-row">
+                    <span class="setting-info-label">Correção de Rotação Manual:</span>
+                    <div class="btn-group">
+                        <button type="button" id="btn-rotate-x" class="btn-action" title="Girar modelo em 90 graus no eixo X">🔄 Girar X 90°</button>
+                        <button type="button" id="btn-rotate-y" class="btn-action" title="Girar modelo em 90 graus no eixo Y">🔄 Girar Y 90°</button>
+                        <button type="button" id="btn-rotate-180" class="btn-action" title="Inverter modelo em 180 graus (Frente / Costas)">🔄 Inverter 180°</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel 2: Stage & Round Pedestal Lighting -->
+            <div class="settings-section">
+                <h3 class="section-title">🪐 PALCO CIRCULAR & AMBIENTE 3D</h3>
+                
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <label for="stage-select">Estilo do Pedestal Redondo & Fundo:</label>
+                        <span class="setting-desc">Palco circular e iluminação atmosférica</span>
+                    </div>
+                    <select id="stage-select" class="custom-select">
+                        <option value="cyber_arena">⚡ Cyber Studio Arena (Pedestal Circular Neon Ciano)</option>
+                        <option value="cosmic_void">🌌 Cosmic Studio (Pedestal Circular Ultravioleta)</option>
+                        <option value="studio_gold">✨ Studio Gold Luxury (Pedestal Circular Ouro)</option>
+                        <option value="clean_dark">🖤 Clean Dark Showroom (Pedestal Minimalista)</option>
+                    </select>
+                </div>
+
+                <div class="setting-row">
+                    <div class="setting-info">
+                        <div class="setting-title-row">
+                            <label for="light-intensity">Intensidade das Luzes PBR:</label>
+                            <span class="badge-value" id="val-lights">2.5x</span>
+                        </div>
+                        <span class="setting-desc">Brilho do estúdio no personagem</span>
+                    </div>
+                    <input type="range" id="light-intensity" min="0.5" max="3.5" step="0.1" value="2.5">
+                </div>
+            </div>
+
+            <!-- Panel 4: Server Connection & Defaults -->
+            <div class="settings-section">
+                <h3 class="section-title">🔗 SERVIDOR DE VISÃO & SINCRONIZAÇÃO</h3>
+                <div class="server-status-box">
+                    <div class="server-input-group">
+                        <input type="text" id="ws-url" value="ws://127.0.0.1:8765" spellcheck="false" class="custom-input">
+                        <button id="btn-reconnect" class="btn-primary">Reconectar</button>
+                    </div>
+                    <div class="status-indicator-line">
+                        <span>Status WebSocket:</span>
+                        <strong id="ws-status-text" class="status-offline">DESCONECTADO</strong>
+                    </div>
+                </div>
+
+                <button id="btn-reset-defaults" class="btn-secondary" style="margin-top: 10px; width: 100%;">
+                    🔄 Restaurar Configurações Padrão
+                </button>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="js/network/stream_client.js?v=4.1.0"></script>
+    <script src="js/network/sync_bridge.js?v=4.1.0"></script>
+    <script src="js/config_app.js?v=4.1.0"></script>
+</body>
+
+</html>
