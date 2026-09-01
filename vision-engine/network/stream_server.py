@@ -84,7 +84,7 @@ class StreamServer:
             handshake = {
                 "type": "HANDSHAKE",
                 "version": "1.0.0",
-                "system": "Superhero Live Experience 3D Vision Server",
+                "system": "HoloHero 3D Vision Server",
                 "timestamp": time.time()
             }
             await websocket.send(json.dumps(handshake))

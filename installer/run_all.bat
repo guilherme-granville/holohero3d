@@ -1,8 +1,8 @@
 @echo off
-title Superhero Live 3D - Launcher
+title HoloHero 3D - Launcher
 cd /d "%~dp0"
 echo ========================================================
-echo   INICIALIZANDO SUPERHERO LIVE EXPERIENCE 3D
+echo   INICIALIZANDO HOLOHERO 3D
 echo ========================================================
 
 echo 1. Iniciando Vision Engine e Servidor 3D...

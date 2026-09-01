@@ -1,6 +1,6 @@
 """
 ==============================================================================
-SUPERHERO LIVE EXPERIENCE 3D - VISION ENGINE ENTRY POINT
+HOLOHERO 3D - VISION ENGINE ENTRY POINT
 ==============================================================================
 Orchestrates Camera Capture, MediaPipe Pose Estimation, One Euro Filtering,
 Person Segmentation, Integrated Web Server, and Real-Time WebSocket Streaming.
@@ -194,7 +194,7 @@ def load_config(config_path: str) -> dict:
         return yaml.safe_load(f) or {}
 
 def main():
-    parser = argparse.ArgumentParser(description="Superhero Live Experience 3D - Vision Engine")
+    parser = argparse.ArgumentParser(description="HoloHero 3D - Vision Engine")
     parser.add_argument("--config", type=str, default="config/settings.yaml", help="Path to settings.yaml")
     parser.add_argument("--camera", type=int, default=None, help="Camera device index")
     parser.add_argument("--port", type=int, default=None, help="WebSocket port")
@@ -219,7 +219,7 @@ def main():
     show_gui = not args.no_gui and debug_cfg.get("show_preview", True)
 
     logger.info("==========================================================")
-    logger.info("  ⚡ SUPERHERO LIVE EXPERIENCE 3D - VISION ENGINE ⚡  ")
+    logger.info("  ⚡ HOLOHERO 3D - VISION ENGINE ⚡  ")
     logger.info("==========================================================")
     logger.info(f"Target Camera Index : {device_index}")
     logger.info(f"WebSocket Endpoint  : ws://127.0.0.1:{ws_port}")
@@ -372,7 +372,7 @@ def main():
                 cv2.putText(debug_frame, f"LATENCY: {latency_ms:.1f} ms | CLIENTS: {len(server.clients)}", (20, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1)
                 cv2.putText(debug_frame, "Web Live Stage: http://127.0.0.1:8000", (20, 135), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 136), 1)
 
-                cv2.imshow(debug_cfg.get("window_name", "Superhero Vision Engine"), debug_frame)
+                cv2.imshow(debug_cfg.get("window_name", "HoloHero Vision Engine"), debug_frame)
                 key = cv2.waitKey(1) & 0xFF
                 if key == ord('q') or key == 27: # 'q' or ESC
                     logger.info("Exit requested via GUI keypress.")
@@ -399,7 +399,7 @@ def main():
             httpd.shutdown()
         if show_gui:
             cv2.destroyAllWindows()
-        logger.info("Superhero Vision Engine stopped cleanly.")
+        logger.info("HoloHero Vision Engine stopped cleanly.")
 
 if __name__ == "__main__":
     main()

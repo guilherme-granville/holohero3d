@@ -1,4 +1,4 @@
-# 🖥️ Guia de Hardware e Instalação em Eventos - Superhero Live Experience 3D
+# 🖥️ Guia de Hardware e Instalação em Eventos - HoloHero 3D
 
 Este guia orienta o time técnico na escolha, montagem e calibração de hardware para ativações presenciais, feiras e estandes.
 

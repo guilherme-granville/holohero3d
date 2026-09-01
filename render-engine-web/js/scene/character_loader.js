@@ -26,7 +26,7 @@ class CharacterLoader {
         }
 
         const root = new THREE.Group();
-        root.name = "Superhero_3D_Root";
+        root.name = "HoloHero_3D_Root";
 
         let primaryColor, secondaryColor, accentColor, glowColor;
         let metalness = 0.92, roughness = 0.18;

@@ -1,5 +1,5 @@
 ==============================================================================
-📁 PASTA DE MODELOS 3D (.GLB / .GLTF) - SUPERHERO LIVE EXPERIENCE 3D
+📁 PASTA DE MODELOS 3D (.GLB / .GLTF) - HOLOHERO 3D
 ==============================================================================
 
 Coloque todos os seus arquivos de modelo 3D (.glb ou .gltf) diretamente nesta pasta:

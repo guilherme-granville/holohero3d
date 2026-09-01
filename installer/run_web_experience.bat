@@ -1,5 +1,5 @@
 @echo off
-title Superhero Live 3D - Web Live Stage
+title HoloHero 3D - Web Live Stage
 echo ========================================================
 echo   ABRINDO CENTRAL DE APRESENTACAO 3D
 echo ========================================================

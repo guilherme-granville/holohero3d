@@ -1,5 +1,5 @@
 /**
- * Superhero Live Experience 3D - Multi-Screen Sync Bridge
+ * HoloHero 3D - Multi-Screen Sync Bridge
  * Synchronizes Model Selection, Calibration Settings, VFX, and Stage across tabs & devices
  * via BroadcastChannel (local 0ms latency) and WebSocket (remote LAN).
  */
@@ -7,7 +7,7 @@
 class SyncBridge {
     constructor(streamClient = null) {
         this.streamClient = streamClient;
-        this.channelName = "superhero_live_channel";
+        this.channelName = "holohero_live_channel";
         this.channel = null;
 
         this.listeners = {
@@ -37,7 +37,7 @@ class SyncBridge {
 
         // Fallback cross-window event via storage
         window.addEventListener("storage", (e) => {
-            if (e.key === "superhero_sync_event" && e.newValue) {
+            if ((e.key === "holohero_sync_event" || e.key === "superhero_sync_event") && e.newValue) {
                 try {
                     const data = JSON.parse(e.newValue);
                     this.handleInboundMessage(data);
@@ -162,7 +162,7 @@ class SyncBridge {
 
         // 2. Storage event fallback
         try {
-            localStorage.setItem("superhero_sync_event", JSON.stringify(payload));
+            localStorage.setItem("holohero_sync_event", JSON.stringify(payload));
         } catch (e) {}
 
         // 3. WebSocket (remote network relay)
@@ -173,15 +173,15 @@ class SyncBridge {
 
     saveState(partial) {
         try {
-            const saved = JSON.parse(localStorage.getItem("superhero_app_state") || "{}");
+            const saved = JSON.parse(localStorage.getItem("holohero_app_state") || localStorage.getItem("superhero_app_state") || "{}");
             const merged = { ...saved, ...partial };
-            localStorage.setItem("superhero_app_state", JSON.stringify(merged));
+            localStorage.setItem("holohero_app_state", JSON.stringify(merged));
         } catch (e) {}
     }
 
     getSavedState() {
         try {
-            return JSON.parse(localStorage.getItem("superhero_app_state") || "{}");
+            return JSON.parse(localStorage.getItem("holohero_app_state") || localStorage.getItem("superhero_app_state") || "{}");
         } catch (e) {
             return {};
         }

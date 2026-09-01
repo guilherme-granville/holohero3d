@@ -1,5 +1,5 @@
 /**
- * WebSocket Stream Client for Superhero Live Experience 3D
+ * WebSocket Stream Client for HoloHero 3D
  * Connects to Python Vision Engine and receives 33 3D landmarks at 60 FPS.
  */
 

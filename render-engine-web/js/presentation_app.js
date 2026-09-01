@@ -1,5 +1,5 @@
 /**
- * Superhero Live Experience 3D - Presentation Stage App (Telão / Apresentação Limpa)
+ * HoloHero 3D - Presentation Stage App (Telão / Apresentação Limpa)
  * Renders 100% clean, distraction-free 3D superhero live stage with real-time pose tracking
  * and instant synchronization with the Operator Configuration Dashboard.
  */

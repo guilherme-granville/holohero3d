@@ -1,5 +1,5 @@
 /**
- * Superhero Live Experience 3D - Operator Configuration Dashboard
+ * HoloHero 3D - Operator Configuration Dashboard
  * Master control panel for model selection, pose tracking calibration,
  * superpower VFX triggers, stage lighting, and real-time dual-screen sync.
  */
@@ -118,7 +118,7 @@ class ConfigDashboardApp {
         // Launch Presentation Window
         if (this.btnLaunchPresentation) {
             this.btnLaunchPresentation.addEventListener("click", () => {
-                window.open("presentation.html", "SuperheroPresentationStage", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
+                window.open("presentation.html", "HoloHeroPresentationStage", "width=1280,height=720,menubar=no,toolbar=no,location=no,status=no");
                 this.showToast("🖥️ Tela de apresentação aberta em nova janela!");
             });
         }

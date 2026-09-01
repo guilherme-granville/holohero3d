@@ -1,6 +1,6 @@
 # 🦸 Guia de Importação de Modelos 3D Customizados
 
-O **Superhero Live Experience 3D** é 100% genérico e agnóstico de personagem. Você pode importar qualquer modelo 3D humanoide customizado ou licenciado (desde que você possua os direitos de uso da marca).
+O **HoloHero 3D** é 100% genérico e agnóstico de personagem. Você pode importar qualquer modelo 3D humanoide customizado ou licenciado (desde que você possua os direitos de uso da marca).
 
 ---
 

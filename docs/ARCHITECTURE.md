@@ -1,4 +1,4 @@
-# 🏛️ Arquitetura do Sistema - Superhero Live Experience 3D
+# 🏛️ Arquitetura do Sistema - HoloHero 3D
 
 Este documento detalha o fluxo de dados ponta a ponta, os protocolos de rede, as transformações de coordenadas e a estratégia de mitigação de latência do sistema.
 

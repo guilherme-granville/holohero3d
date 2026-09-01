@@ -1,4 +1,4 @@
-# ⚡ Superhero Live Experience 3D ⚡
+# ⚡ HoloHero 3D ⚡
 
 Sistema interativo profissional de **Realidade Aumentada e Visão Computacional em Tempo Real** para eventos, estandes, transmissões ao vivo e ativações de marca. Substitui instantaneamente qualquer pessoa em frente a uma webcam por um avatar 3D com rastreamento corporal completo, tracking biométrico individual de 21 juntas por mão, detecção de gestos (punho fechado, pinça, vitória, etc.), palco virtual 3D PBR e efeitos cinematográficos de superpoderes com partículas GPU e áudio espacial.
 

@@ -1,5 +1,5 @@
 # ==============================================================================
-# SUPERHERO LIVE EXPERIENCE 3D - VISION ENGINE CONFIGURATION
+# HOLOHERO 3D - VISION ENGINE CONFIGURATION
 # ==============================================================================
 
 camera:
@@ -31,7 +31,7 @@ network:
 
 debug:
   show_preview: true       # Exibir janela OpenCV com visualização do esqueleto
-  window_name: "Superhero Vision Engine - Debug Monitor"
+  window_name: "HoloHero Vision Engine - Debug Monitor"
   draw_landmarks: true
   draw_segmentation_mask: false
   show_fps: true

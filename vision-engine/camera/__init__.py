@@ -1,3 +1,3 @@
 """
-Camera capture module for Superhero Live Experience 3D.
+Camera capture module for HoloHero 3D.
 """

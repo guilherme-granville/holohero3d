@@ -1,10 +1,10 @@
 /**
- * Superhero Live Experience 3D - Main Web Application
+ * HoloHero 3D - Main Web Application
  * Master orchestrator connecting Three.js rendering, real-time pose retargeting,
  * VFX particles, and WebSocket vision telemetry.
  */
 
-class SuperheroApp {
+class HoloHeroApp {
     constructor() {
         this.container = document.getElementById("canvas-container");
         this.scene = null;
@@ -192,5 +192,5 @@ class SuperheroApp {
 
 // Instantiate on DOM Loaded
 window.addEventListener("DOMContentLoaded", () => {
-    window.app = new SuperheroApp();
+    window.app = new HoloHeroApp();
 });

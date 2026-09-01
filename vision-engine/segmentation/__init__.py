@@ -1,3 +1,3 @@
 """
-Segmentation and Matting module for Superhero Live Experience 3D.
+Segmentation and Matting module for HoloHero 3D.
 """

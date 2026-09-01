@@ -1,3 +1,3 @@
 """
-Pose estimation and smoothing modules for Superhero Live Experience 3D.
+Pose estimation and smoothing modules for HoloHero 3D.
 """

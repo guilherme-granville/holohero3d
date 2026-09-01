@@ -1,5 +1,5 @@
 /**
- * 3D Virtual Studio Stage Environment for Superhero Live Experience 3D
+ * 3D Virtual Studio Stage Environment for HoloHero 3D
  * - 100% Round Multi-Tier Sci-Fi Pedestal & Concentric Glowing Rings
  * - Atmospheric Gradient Studio Background & Subtle Floating Dust Motes
  * - Cinematic 3-Point PBR Studio Lighting & Contact Shadows
