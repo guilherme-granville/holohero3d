@@ -282,18 +282,24 @@ class BoneMapper {
         if (character.root) {
             // Lateral Position (X Axis) - Natural mirror walking: stepping right moves character to screen right (+X)
             const rawHipX = (lms[23].x + lms[24].x) * 0.5;
-            const mappedX = (this.isMirrored ? (0.5 - rawHipX) : (rawHipX - 0.5)) * 2.8 * (this.lateralSensitivity || 1.0);
+            const mappedX = (this.isMirrored ? (0.5 - rawHipX) : (rawHipX - 0.5)) * 2.4 * (this.lateralSensitivity || 1.0);
 
             // Depth / Distance Tracking (Z Axis) based on user's real distance to camera
             const torsoH = poseData.metrics?.torso_height || Math.hypot(L_SHOULDER.x - L_HIP.x, L_SHOULDER.y - L_HIP.y);
             const refTorsoH = 0.30;
-            const depthRatio = THREE.MathUtils.clamp(torsoH / refTorsoH, 0.4, 2.5);
+            const depthRatio = THREE.MathUtils.clamp(torsoH / refTorsoH, 0.5, 2.0);
 
-            const targetZ = (depthRatio - 1.0) * 3.5 * (this.depthSensitivity || 1.2);
-            const clampedZ = THREE.MathUtils.clamp(targetZ, -3.5, 3.0);
+            // Gentle depth scale (prevents violent forward/backward flinging)
+            const targetZ = (depthRatio - 1.0) * 1.5 * (this.depthSensitivity || 1.0);
+            const clampedZ = THREE.MathUtils.clamp(targetZ, -2.5, 2.0);
 
-            character.root.position.x = THREE.MathUtils.lerp(character.root.position.x, mappedX, 0.18);
-            character.root.position.z = THREE.MathUtils.lerp(character.root.position.z, clampedZ, 0.18);
+            // Deadband hysteresis to eliminate stationary twitching
+            if (Math.abs(mappedX - character.root.position.x) > 0.01) {
+                character.root.position.x = THREE.MathUtils.lerp(character.root.position.x, mappedX, 0.12);
+            }
+            if (Math.abs(clampedZ - character.root.position.z) > 0.02) {
+                character.root.position.z = THREE.MathUtils.lerp(character.root.position.z, clampedZ, 0.08);
+            }
             character.root.position.y = 0.0;
         }
 
@@ -352,16 +358,10 @@ class BoneMapper {
 
         // 3. LEFT & RIGHT ARM 3D KINEMATICS WITH CALIBRATED DEPTH & ANTI-COLLISION
         let lUpperDir = new THREE.Vector3().subVectors(L_ELBOW, L_SHOULDER).normalize();
-        let lWristPos = (poseData.left_hand_landmarks && poseData.left_hand_landmarks.length >= 21) 
-            ? this.toVector3(poseData.left_hand_landmarks[0]) 
-            : L_WRIST;
-        let lLowerDir = new THREE.Vector3().subVectors(lWristPos, L_ELBOW).normalize();
+        let lLowerDir = new THREE.Vector3().subVectors(L_WRIST, L_ELBOW).normalize();
 
         let rUpperDir = new THREE.Vector3().subVectors(R_ELBOW, R_SHOULDER).normalize();
-        let rWristPos = (poseData.right_hand_landmarks && poseData.right_hand_landmarks.length >= 21) 
-            ? this.toVector3(poseData.right_hand_landmarks[0]) 
-            : R_WRIST;
-        let rLowerDir = new THREE.Vector3().subVectors(rWristPos, R_ELBOW).normalize();
+        let rLowerDir = new THREE.Vector3().subVectors(R_WRIST, R_ELBOW).normalize();
 
         // High-Precision 3D Metric World Landmarks (True depth in meters)
         if (wlms && wlms.length >= 17) {
@@ -375,45 +375,47 @@ class BoneMapper {
 
             if (wL_SHOULDER && wL_ELBOW && wL_WRIST) {
                 const wUpperL = new THREE.Vector3().subVectors(wL_ELBOW, wL_SHOULDER);
-                wUpperL.z *= this.depthSensitivity;
+                wUpperL.z *= (this.depthSensitivity || 1.0);
                 wUpperL.normalize();
                 if (wUpperL.lengthSq() > 0.01) lUpperDir.copy(wUpperL);
 
-                // Modulate lower arm depth while preserving anatomical wrist XY position
-                const depthZL = (wL_WRIST.z - wL_ELBOW.z) * this.depthSensitivity;
-                lLowerDir = new THREE.Vector3(lWristPos.x - L_ELBOW.x, lWristPos.y - L_ELBOW.y, depthZL).normalize();
+                const wLowerL = new THREE.Vector3().subVectors(wL_WRIST, wL_ELBOW);
+                wLowerL.z *= (this.depthSensitivity || 1.0);
+                wLowerL.normalize();
+                if (wLowerL.lengthSq() > 0.01) lLowerDir.copy(wLowerL);
             }
 
             if (wR_SHOULDER && wR_ELBOW && wR_WRIST) {
                 const wUpperR = new THREE.Vector3().subVectors(wR_ELBOW, wR_SHOULDER);
-                wUpperR.z *= this.depthSensitivity;
+                wUpperR.z *= (this.depthSensitivity || 1.0);
                 wUpperR.normalize();
                 if (wUpperR.lengthSq() > 0.01) rUpperDir.copy(wUpperR);
 
-                // Modulate lower arm depth while preserving anatomical wrist XY position
-                const depthZR = (wR_WRIST.z - wR_ELBOW.z) * this.depthSensitivity;
-                rLowerDir = new THREE.Vector3(rWristPos.x - R_ELBOW.x, rWristPos.y - R_ELBOW.y, depthZR).normalize();
+                const wLowerR = new THREE.Vector3().subVectors(wR_WRIST, wR_ELBOW);
+                wLowerR.z *= (this.depthSensitivity || 1.0);
+                wLowerR.normalize();
+                if (wLowerR.lengthSq() > 0.01) rLowerDir.copy(wLowerR);
             }
         }
 
         // Anti-Penetration 1: Torso / Chest Self-Collision Prevention
         // If arms point backwards into the ribcage/torso, smoothly clamp depth so hands rest in front of body
-        if (lLowerDir.z < -0.15 && Math.abs(lWristPos.x) < 0.45) {
+        if (lLowerDir.z < -0.15 && Math.abs(L_WRIST.x) < 0.45) {
             lLowerDir.z = Math.max(lLowerDir.z, 0.05);
             lLowerDir.normalize();
         }
-        if (rLowerDir.z < -0.15 && Math.abs(rWristPos.x) < 0.45) {
+        if (rLowerDir.z < -0.15 && Math.abs(R_WRIST.x) < 0.45) {
             rLowerDir.z = Math.max(rLowerDir.z, 0.05);
             rLowerDir.normalize();
         }
 
         // Anti-Penetration 2: Inter-Hand Contact Alignment (Hands meeting without crossing/clipping)
-        const interHandDist = lWristPos.distanceTo(rWristPos);
+        const interHandDist = L_WRIST.distanceTo(R_WRIST);
         if (interHandDist < 0.22) {
             // Hands are brought together (prayer, clapping, touching hands)
-            const handMidX = (lWristPos.x + rWristPos.x) * 0.5;
-            const handMidY = (lWristPos.y + rWristPos.y) * 0.5;
-            const handMidZ = Math.max(lWristPos.z, rWristPos.z, 0.15); // ensure in front of chest
+            const handMidX = (L_WRIST.x + R_WRIST.x) * 0.5;
+            const handMidY = (L_WRIST.y + R_WRIST.y) * 0.5;
+            const handMidZ = Math.max(L_WRIST.z, R_WRIST.z, 0.15); // ensure in front of chest
 
             const targetL = new THREE.Vector3(handMidX - 0.06, handMidY, handMidZ);
             const targetR = new THREE.Vector3(handMidX + 0.06, handMidY, handMidZ);
@@ -443,66 +445,68 @@ class BoneMapper {
         }
 
         // 5. LEFT LEG & FOOT: Thigh -> Shin -> Foot
-        const lLegVisible = (lms[23].visibility ?? 1.0) > 0.35 && (lms[25].visibility ?? 1.0) > 0.35;
+        const lLegVisible = (lms[23].visibility ?? 1.0) > 0.25 && (lms[25].visibility ?? 1.0) > 0.25;
         if (lLegVisible && bones.leftUpperLeg) {
             const lThighDir = new THREE.Vector3().subVectors(L_KNEE, L_HIP).normalize();
             if (lThighDir.y < 0.3) {
                 this._retargetBone(bones.leftUpperLeg, lThighDir, 0.55);
                 bones.leftUpperLeg.updateWorldMatrix(true, false);
             }
-            if ((lms[27].visibility ?? 1.0) > 0.35 && bones.leftLowerLeg) {
+            if ((lms[27].visibility ?? 1.0) > 0.25 && bones.leftLowerLeg) {
                 const lShinDir = new THREE.Vector3().subVectors(L_ANKLE, L_KNEE).normalize();
                 if (lShinDir.y < 0.3) {
                     this._retargetBone(bones.leftLowerLeg, lShinDir, 0.55);
                     bones.leftLowerLeg.updateWorldMatrix(true, false);
                 }
             }
-            if ((lms[31].visibility ?? 1.0) > 0.3 && bones.leftFoot) {
+            if ((lms[31].visibility ?? 1.0) > 0.25 && bones.leftFoot) {
                 const lFootDir = new THREE.Vector3().subVectors(L_FOOT, L_ANKLE).normalize();
                 this._retargetBone(bones.leftFoot, lFootDir, 0.55);
                 bones.leftFoot.updateWorldMatrix(true, false);
             }
         } else {
+            // Smoothly retain pose without violent snapping
             if (bones.leftUpperLeg && bones.leftUpperLeg.userData.bindLocalQuat) {
-                bones.leftUpperLeg.quaternion.slerp(bones.leftUpperLeg.userData.bindLocalQuat, 0.1);
+                bones.leftUpperLeg.quaternion.slerp(bones.leftUpperLeg.userData.bindLocalQuat, 0.02);
             }
             if (bones.leftLowerLeg && bones.leftLowerLeg.userData.bindLocalQuat) {
-                bones.leftLowerLeg.quaternion.slerp(bones.leftLowerLeg.userData.bindLocalQuat, 0.1);
+                bones.leftLowerLeg.quaternion.slerp(bones.leftLowerLeg.userData.bindLocalQuat, 0.02);
             }
             if (bones.leftFoot && bones.leftFoot.userData.bindLocalQuat) {
-                bones.leftFoot.quaternion.slerp(bones.leftFoot.userData.bindLocalQuat, 0.1);
+                bones.leftFoot.quaternion.slerp(bones.leftFoot.userData.bindLocalQuat, 0.02);
             }
         }
 
         // 6. RIGHT LEG & FOOT: Thigh -> Shin -> Foot
-        const rLegVisible = (lms[24].visibility ?? 1.0) > 0.35 && (lms[26].visibility ?? 1.0) > 0.35;
+        const rLegVisible = (lms[24].visibility ?? 1.0) > 0.25 && (lms[26].visibility ?? 1.0) > 0.25;
         if (rLegVisible && bones.rightUpperLeg) {
             const rThighDir = new THREE.Vector3().subVectors(R_KNEE, R_HIP).normalize();
             if (rThighDir.y < 0.3) {
                 this._retargetBone(bones.rightUpperLeg, rThighDir, 0.55);
                 bones.rightUpperLeg.updateWorldMatrix(true, false);
             }
-            if ((lms[28].visibility ?? 1.0) > 0.35 && bones.rightLowerLeg) {
+            if ((lms[28].visibility ?? 1.0) > 0.25 && bones.rightLowerLeg) {
                 const rShinDir = new THREE.Vector3().subVectors(R_ANKLE, R_KNEE).normalize();
                 if (rShinDir.y < 0.3) {
                     this._retargetBone(bones.rightLowerLeg, rShinDir, 0.55);
                     bones.rightLowerLeg.updateWorldMatrix(true, false);
                 }
             }
-            if ((lms[32].visibility ?? 1.0) > 0.3 && bones.rightFoot) {
+            if ((lms[32].visibility ?? 1.0) > 0.25 && bones.rightFoot) {
                 const rFootDir = new THREE.Vector3().subVectors(R_FOOT, R_ANKLE).normalize();
                 this._retargetBone(bones.rightFoot, rFootDir, 0.55);
                 bones.rightFoot.updateWorldMatrix(true, false);
             }
         } else {
+            // Smoothly retain pose without violent snapping
             if (bones.rightUpperLeg && bones.rightUpperLeg.userData.bindLocalQuat) {
-                bones.rightUpperLeg.quaternion.slerp(bones.rightUpperLeg.userData.bindLocalQuat, 0.1);
+                bones.rightUpperLeg.quaternion.slerp(bones.rightUpperLeg.userData.bindLocalQuat, 0.02);
             }
             if (bones.rightLowerLeg && bones.rightLowerLeg.userData.bindLocalQuat) {
-                bones.rightLowerLeg.quaternion.slerp(bones.rightLowerLeg.userData.bindLocalQuat, 0.1);
+                bones.rightLowerLeg.quaternion.slerp(bones.rightLowerLeg.userData.bindLocalQuat, 0.02);
             }
             if (bones.rightFoot && bones.rightFoot.userData.bindLocalQuat) {
-                bones.rightFoot.quaternion.slerp(bones.rightFoot.userData.bindLocalQuat, 0.1);
+                bones.rightFoot.quaternion.slerp(bones.rightFoot.userData.bindLocalQuat, 0.02);
             }
         }
 
@@ -548,7 +552,7 @@ class BoneMapper {
                 palmNormal.negate();
             }
 
-            if (handBone) {
+            if (handBone && handForward.lengthSq() > 0.001 && palmNormal.lengthSq() > 0.001) {
                 this._retargetHandWithTwist(handBone, handForward, palmNormal, side, 0.85);
             }
 
@@ -619,9 +623,9 @@ class BoneMapper {
                         if (segDir.lengthSq() > 0.001) {
                             this._retargetBone(bone, segDir, 0.9);
                             
-                            // Anatomical Fist Clench Assist: If finger is curled into a fist, apply clean joint flexion
-                            if (fingerCurl > 0.35 && bone.userData.bindLocalQuat) {
-                                const flexAngle = (j === 0 ? 0.65 : 0.85) * (fingerCurl * 1.57); // up to ~80-90 deg
+                            // Anatomical Fist Clench Assist: subtle assist for tight fist without double-bending
+                            if (fingerCurl > 0.6 && bone.userData.bindLocalQuat) {
+                                const flexAngle = (j === 0 ? 0.25 : 0.35) * ((fingerCurl - 0.5) * 1.0);
                                 const flexAxis = (fName === "thumb") ? new THREE.Vector3(0, 1, 0.5).normalize() : new THREE.Vector3(0, 0, (side === "left" ? 1 : -1));
                                 const flexQuat = new THREE.Quaternion().setFromAxisAngle(flexAxis, flexAngle);
                                 bone.quaternion.multiply(flexQuat);
@@ -644,8 +648,25 @@ class BoneMapper {
                 const handForward = new THREE.Vector3().subVectors(pI, pW).normalize();
                 const handSide = new THREE.Vector3().subVectors(pI, pP).normalize();
                 const palmNormal = new THREE.Vector3().crossVectors(handForward, handSide).normalize();
-                if (bones.leftHand && handForward.lengthSq() > 0.001) {
-                    this._retargetHandWithTwist(bones.leftHand, handForward, palmNormal, "left", 0.75);
+                if (bones.leftHand && handForward.lengthSq() > 0.001 && palmNormal.lengthSq() > 0.001) {
+                    this._retargetHandWithTwist(bones.leftHand, handForward, palmNormal, "left", 0.65);
+                }
+                if (character.fingers && character.fingers.left) {
+                    const fistScore = poseData.left_hand_gesture?.fist_score ?? (poseData.left_hand_gesture?.is_fist ? 1.0 : 0.0);
+                    for (const [fName, joints] of Object.entries(character.fingers.left)) {
+                        joints.forEach((b, j) => {
+                            if (!b || !b.userData.bindLocalQuat) return;
+                            if (fistScore > 0.15) {
+                                const flexAngle = (j === 0 ? 0.45 : 0.65) * fistScore * 1.4;
+                                const flexAxis = (fName === "thumb") ? new THREE.Vector3(0, 1, 0.5).normalize() : new THREE.Vector3(0, 0, 1);
+                                const flexQuat = new THREE.Quaternion().setFromAxisAngle(flexAxis, flexAngle);
+                                const targetQuat = b.userData.bindLocalQuat.clone().multiply(flexQuat);
+                                b.quaternion.slerp(targetQuat, 0.18);
+                            } else {
+                                b.quaternion.slerp(b.userData.bindLocalQuat, 0.08);
+                            }
+                        });
+                    }
                 }
             } else {
                 if (bones.leftHand && bones.leftHand.userData.bindLocalQuat) {
@@ -672,8 +693,25 @@ class BoneMapper {
                 const handSide = new THREE.Vector3().subVectors(pI, pP).normalize();
                 let palmNormal = new THREE.Vector3().crossVectors(handForward, handSide).normalize();
                 palmNormal.negate();
-                if (bones.rightHand && handForward.lengthSq() > 0.001) {
-                    this._retargetHandWithTwist(bones.rightHand, handForward, palmNormal, "right", 0.75);
+                if (bones.rightHand && handForward.lengthSq() > 0.001 && palmNormal.lengthSq() > 0.001) {
+                    this._retargetHandWithTwist(bones.rightHand, handForward, palmNormal, "right", 0.65);
+                }
+                if (character.fingers && character.fingers.right) {
+                    const fistScore = poseData.right_hand_gesture?.fist_score ?? (poseData.right_hand_gesture?.is_fist ? 1.0 : 0.0);
+                    for (const [fName, joints] of Object.entries(character.fingers.right)) {
+                        joints.forEach((b, j) => {
+                            if (!b || !b.userData.bindLocalQuat) return;
+                            if (fistScore > 0.15) {
+                                const flexAngle = (j === 0 ? 0.45 : 0.65) * fistScore * 1.4;
+                                const flexAxis = (fName === "thumb") ? new THREE.Vector3(0, 1, 0.5).normalize() : new THREE.Vector3(0, 0, -1);
+                                const flexQuat = new THREE.Quaternion().setFromAxisAngle(flexAxis, flexAngle);
+                                const targetQuat = b.userData.bindLocalQuat.clone().multiply(flexQuat);
+                                b.quaternion.slerp(targetQuat, 0.18);
+                            } else {
+                                b.quaternion.slerp(b.userData.bindLocalQuat, 0.08);
+                            }
+                        });
+                    }
                 }
             } else {
                 if (bones.rightHand && bones.rightHand.userData.bindLocalQuat) {

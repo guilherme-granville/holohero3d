@@ -33,6 +33,7 @@ class StreamServer:
         self.packets_sent = 0
         self.last_broadcast_time = time.time()
         self.broadcast_fps = 0.0
+        self.message_handler = None
 
     def start(self):
         """Starts WebSocket server on a dedicated asyncio event loop thread."""
@@ -123,6 +124,12 @@ class StreamServer:
         elif msg_type in ("SET_MODEL", "SET_SETTINGS", "SYNC_STATE", "RESET_CAMERA"):
             # Relay configuration and model selection to all display/render clients
             self.broadcast(msg)
+
+        if self.message_handler:
+            try:
+                self.message_handler(msg)
+            except Exception as e:
+                logger.warning(f"Error in stream server message_handler: {e}")
 
     def broadcast(self, payload: Dict[str, Any]):
         """

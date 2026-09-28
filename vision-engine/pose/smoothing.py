@@ -75,11 +75,13 @@ class OneEuroFilter:
             self.dx_filter.hat_x_prev = np.zeros_like(x_val)
             return x_val
 
-        t_e = timestamp - self.t_prev
+        t_raw = timestamp - self.t_prev
         # Guard against zero or negative delta time
-        if t_e <= 1e-5:
+        if t_raw <= 1e-4:
             return self.x_filter.hat_x_prev if self.x_filter.hat_x_prev is not None else x_val
         
+        # Clamp delta time to avoid derivative explosion on tiny intervals or runaway on pauses
+        t_e = float(np.clip(t_raw, 0.012, 0.12))
         self.t_prev = timestamp
 
         # Compute signal derivative
@@ -90,8 +92,8 @@ class OneEuroFilter:
         a_d = self._smoothing_factor(t_e, self.d_cutoff)
         hat_dx = self.dx_filter.filter(dx, a_d)
 
-        # Compute adaptive cutoff frequency
-        speed = np.abs(hat_dx)
+        # Compute adaptive cutoff frequency with bounded speed
+        speed = np.clip(np.abs(hat_dx), 0.0, 20.0)
         cutoff = self.min_cutoff + self.beta * speed
 
         # Filter main signal with adaptive cutoff
@@ -123,21 +125,21 @@ class LandmarkSmoother:
             for _ in range(num_landmarks)
         ]
 
-        # Filters for 21 Left Hand Landmarks (high responsiveness for fast finger & wrist movements)
+        # Filters for 21 Left Hand Landmarks (calibrated for low jitter and fast response)
         self.left_hand_filters: List[OneEuroFilter] = [
-            OneEuroFilter(min_cutoff=1.5, beta=0.03, d_cutoff=1.0)
+            OneEuroFilter(min_cutoff=1.2, beta=0.008, d_cutoff=1.0)
             for _ in range(21)
         ]
 
-        # Filters for 21 Right Hand Landmarks (high responsiveness for fast finger & wrist movements)
+        # Filters for 21 Right Hand Landmarks (calibrated for low jitter and fast response)
         self.right_hand_filters: List[OneEuroFilter] = [
-            OneEuroFilter(min_cutoff=1.5, beta=0.03, d_cutoff=1.0)
+            OneEuroFilter(min_cutoff=1.2, beta=0.008, d_cutoff=1.0)
             for _ in range(21)
         ]
 
         # Filters for Face keypoints
         self.face_filters: List[OneEuroFilter] = [
-            OneEuroFilter(min_cutoff=1.5, beta=0.02, d_cutoff=1.0)
+            OneEuroFilter(min_cutoff=1.2, beta=0.008, d_cutoff=1.0)
             for _ in range(10)
         ]
 

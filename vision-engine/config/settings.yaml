@@ -4,19 +4,19 @@
 
 camera:
   device_index: 0          # Índice da webcam (0 para câmera padrão)
-  width: 1280              # Largura de captura HD 720p (1280x720) nítida e ampla
-  height: 720              # Altura de captura HD
-  target_fps: 30           # FPS padrão da webcam (30 FPS estável)
-  api_preference: "MSMF"   # MSMF (Media Foundation) nativo do Windows para máximo FPS em HD
+  width: 848               # Resolução Widescreen 16:9 (848x480) que desbloqueia 30 FPS reais na webcam USB
+  height: 480              # (Webcams USB 2.0 em formato YUY2 ficam travadas em 10 FPS quando em 720p/1080p)
+  target_fps: 30           # 30 FPS fluido e sem travamentos
+  api_preference: "DSHOW"   # DSHOW (DirectShow) nativo do Windows para máxima compatibilidade e inicialização instantânea de webcams USB
   buffer_size: 1           # Buffer circular de 1 frame para latência mínima
 
 pose:
   model_complexity: 1      # 1=Full Holistic (alta precisão para mãos, dedos, cabeça e 3D)
   smooth_landmarks: true   # Suavização interna do MediaPipe
-  enable_segmentation: false # Desativar segmentação para liberar até 40ms por frame e atingir 60 FPS
+  enable_segmentation: false # Desativar segmentação para liberar até 40ms por frame e atingir 30-60 FPS
   smooth_segmentation: false
-  min_detection_confidence: 0.6
-  min_tracking_confidence: 0.6
+  min_detection_confidence: 0.45 # 0.45 permite capturar corpo inteiro com precisão mesmo longe / à distância
+  min_tracking_confidence: 0.45  # 0.45 mantém o tracking contínuo sem perder o esqueleto quando a pessoa se afasta
 
 filter:
   # One Euro Filter parameters para controle de jitter e lag
@@ -35,3 +35,13 @@ debug:
   draw_landmarks: true
   draw_segmentation_mask: false
   show_fps: true
+
+# Configurações de troca automática de personagens
+auto_switch:
+  enabled: true                    # Troca automática de personagem quando alguém diferente for detectado
+  cooldown_sec: 3.5                # Tempo mínimo entre trocas consecutivas enquanto rastreando (segundos)
+  absence_threshold_sec: 1.3       # Tempo sem pessoa no quadro para considerar nova entrada/sessão (segundos)
+  appearance_diff_threshold: 0.42  # Limiar de diferença de aparência/roupa (Bhattacharyya HSV)
+  proportions_diff_threshold: 0.30 # Limiar de diferença de proporções anatômicas (ombro/tronco)
+  diff_frames_threshold: 8         # Quantidade de frames consecutivos diferentes antes de trocar
+

@@ -57,86 +57,150 @@ class PoseEstimator:
         self.model_complexity = model_complexity
         self.enable_segmentation = enable_segmentation
         
-        # 1. Primary Full-Body Pose Solution
-        self.mp_pose = mp.solutions.pose
-        self.pose = self.mp_pose.Pose(
+        # 1. Unified MediaPipe Holistic Solution (Body Pose + Native Wrist-ROI Hand Cropping)
+        self.mp_holistic = mp.solutions.holistic
+        self.holistic = self.mp_holistic.Holistic(
             static_image_mode=False,
             model_complexity=model_complexity,
             smooth_landmarks=smooth_landmarks,
             enable_segmentation=enable_segmentation,
             smooth_segmentation=smooth_segmentation,
+            refine_face_landmarks=False,
             min_detection_confidence=min_detection_confidence,
             min_tracking_confidence=min_tracking_confidence
         )
 
-        # 2. Dedicated High-Precision Hands Solution (Tracks fists, curls, gestures robustly)
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=2,
-            model_complexity=1,
-            min_detection_confidence=min_detection_confidence,
-            min_tracking_confidence=min_tracking_confidence
-        )
-
-        # 3. Gesture & Biometrics Analyzer
+        # 2. Gesture & Biometrics Analyzer
         self.gesture_analyzer = HandGestureAnalyzer()
 
-        # 4. Adaptive One Euro Landmark Filter Banks
+        # 3. Adaptive One Euro Landmark Filter Banks
         self.smoother = LandmarkSmoother(
             num_landmarks=33,
             min_cutoff=filter_min_cutoff,
             beta=filter_beta,
             d_cutoff=filter_d_cutoff
         )
-
-        # Persistent hand identity tracking (prevents left/right hand flipping)
-        self.prev_hand_pts = {"left": None, "right": None}
+        self.lost_frames = 0
 
         self.mp_drawing = mp.solutions.drawing_utils
 
-    def process(self, frame_bgr: np.ndarray, timestamp: float) -> Tuple[bool, Optional[Dict[str, Any]], Optional[np.ndarray]]:
+    def _estimate_fallback_gesture(self, landmarks: List[Dict[str, float]], side: str) -> Dict[str, Any]:
+        """Estimates basic fist vs open hand gesture directly from 33 body pose landmarks when at distance."""
+        is_left = (side == "left")
+        w_idx = 15 if is_left else 16
+        i_idx = 19 if is_left else 20
+        e_idx = 13 if is_left else 14
+
+        is_fist = False
+        fist_score = 0.0
+        curls = {"thumb": 0.0, "index": 0.0, "middle": 0.0, "ring": 0.0, "pinky": 0.0}
+
+        if len(landmarks) > max(w_idx, i_idx, e_idx):
+            w = landmarks[w_idx]
+            i = landmarks[i_idx]
+            e = landmarks[e_idx]
+
+            # Forearm length reference (elbow to wrist)
+            forearm = math.hypot(w["x"] - e["x"], w["y"] - e["y"])
+            # Hand extension (wrist to index finger tip)
+            hand_ext = math.hypot(i["x"] - w["x"], i["y"] - w["y"])
+
+            if forearm > 0.01:
+                ratio = hand_ext / forearm
+                # When open, ratio is ~0.35-0.45; when curled into fist, ratio drops to ~0.15-0.22
+                fist_score = float(np.clip(1.0 - (ratio - 0.16) / 0.18, 0.0, 1.0))
+                is_fist = fist_score > 0.55
+                for k in curls:
+                    curls[k] = fist_score
+
+        return {
+            "detected": False,
+            "is_fist": is_fist,
+            "fist_score": fist_score,
+            "is_open": not is_fist,
+            "open_score": 1.0 - fist_score,
+            "gesture": "FIST" if is_fist else "NEUTRAL",
+            "curls": curls,
+            "pinch_dist": 1.0,
+            "palm_normal": {"x": 0.0, "y": 0.0, "z": -1.0}
+        }
+
+    def process(
+        self,
+        frame_bgr: np.ndarray,
+        timestamp: float,
+        roi: Optional[Tuple[float, float, float, float]] = None
+    ) -> Tuple[bool, Optional[Dict[str, Any]], Optional[np.ndarray]]:
         """
-        Processes a video frame with dual-engine tracking and returns:
+        Processes a video frame with MediaPipe Holistic tracking and returns:
         (detected, pose_data_dict, segmentation_mask)
+        Supports optional ROI parameter (min_x, min_y, max_x, max_y) to isolate and track a specific person.
         """
         h, w = frame_bgr.shape[:2]
-        
+
+        # Calculate crop coordinates if an ROI is specified
+        scale_x, scale_y = 1.0, 1.0
+        offset_x, offset_y = 0.0, 0.0
+
+        if roi is not None:
+            min_x, min_y, max_x, max_y = roi
+            rx1 = max(0, int(min_x * w))
+            ry1 = max(0, int(min_y * h))
+            rx2 = min(w, int(max_x * w))
+            ry2 = min(h, int(max_y * h))
+
+            crop_w = rx2 - rx1
+            crop_h = ry2 - ry1
+            if crop_w >= 50 and crop_h >= 50:
+                target_bgr = frame_bgr[ry1:ry2, rx1:rx2]
+                scale_x = crop_w / float(w)
+                scale_y = crop_h / float(h)
+                offset_x = rx1 / float(w)
+                offset_y = ry1 / float(h)
+            else:
+                target_bgr = frame_bgr
+        else:
+            target_bgr = frame_bgr
+
         # Optimal inference downsampling to 960px width for fast 45-60 FPS tracking
-        if w > 960:
+        th, tw = target_bgr.shape[:2]
+        if tw > 960:
             target_w = 960
-            target_h = int(h * (960.0 / w))
-            small_bgr = cv2.resize(frame_bgr, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
+            target_h = int(th * (960.0 / tw))
+            small_bgr = cv2.resize(target_bgr, (target_w, target_h), interpolation=cv2.INTER_LINEAR)
             frame_rgb = cv2.cvtColor(small_bgr, cv2.COLOR_BGR2RGB)
         else:
-            frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
+            frame_rgb = cv2.cvtColor(target_bgr, cv2.COLOR_BGR2RGB)
 
         frame_rgb.flags.writeable = False
 
-        # Run Pose and Dedicated Hands inferences
-        pose_results = self.pose.process(frame_rgb)
-        hands_results = self.hands.process(frame_rgb)
+        # Run single unified Holistic inference (Body pose + Automatic Wrist-ROI Hand Cropping)
+        results = self.holistic.process(frame_rgb)
 
         frame_rgb.flags.writeable = True
 
-        if not pose_results.pose_landmarks:
-            self.smoother.reset()
+        if not results.pose_landmarks:
+            self.lost_frames += 1
+            if self.lost_frames > 15:
+                self.smoother.reset()
             return False, None, None
 
-        # 1. Extract 33 Body Pose Landmarks
+        self.lost_frames = 0
+
+        # 1. Extract 33 Body Pose Landmarks mapped to full frame
         raw_landmarks = []
-        for lm in pose_results.pose_landmarks.landmark:
+        for lm in results.pose_landmarks.landmark:
             raw_landmarks.append({
-                "x": float(lm.x),
-                "y": float(lm.y),
-                "z": float(lm.z),
+                "x": float(offset_x + lm.x * scale_x),
+                "y": float(offset_y + lm.y * scale_y),
+                "z": float(lm.z * scale_x),
                 "visibility": float(lm.visibility)
             })
 
         # 2. Extract 3D World Landmarks (metric coordinates centered at hips)
         raw_world_landmarks = []
-        if pose_results.pose_world_landmarks:
-            for wlm in pose_results.pose_world_landmarks.landmark:
+        if results.pose_world_landmarks:
+            for wlm in results.pose_world_landmarks.landmark:
                 raw_world_landmarks.append({
                     "x": float(wlm.x),
                     "y": float(wlm.y),
@@ -149,125 +213,36 @@ class PoseEstimator:
             raw_landmarks, raw_world_landmarks, timestamp
         )
 
-        # 3. Spatio-Temporal Kinematic Hand Association (Zero-Swap Tracking Memory + Forearm Ray Cost)
+        # 3. Dedicated Hands from Holistic (Native Crop-ROI Tracking)
         raw_left_hand: Optional[List[Dict[str, float]]] = None
         raw_right_hand: Optional[List[Dict[str, float]]] = None
 
-        l_wrist = smooth_landmarks[15] if len(smooth_landmarks) > 15 else None
-        r_wrist = smooth_landmarks[16] if len(smooth_landmarks) > 16 else None
-        l_elbow = smooth_landmarks[13] if len(smooth_landmarks) > 13 else None
-        r_elbow = smooth_landmarks[14] if len(smooth_landmarks) > 14 else None
+        if results.left_hand_landmarks:
+            raw_left_hand = [
+                {"x": float(offset_x + lm.x * scale_x), "y": float(offset_y + lm.y * scale_y), "z": float(lm.z * scale_x), "visibility": float(getattr(lm, "visibility", 1.0))}
+                for lm in results.left_hand_landmarks.landmark
+            ]
 
-        prev_l = self.prev_hand_pts.get("left")
-        prev_r = self.prev_hand_pts.get("right")
-
-        def hand_distance(pts_a, pts_b):
-            if not pts_a or not pts_b:
-                return 999.0
-            return math.hypot(pts_a[0]["x"] - pts_b[0]["x"], pts_a[0]["y"] - pts_b[0]["y"])
-
-        def point_distance(pt_a, pt_b):
-            if not pt_a or not pt_b:
-                return 999.0
-            return math.hypot(pt_a["x"] - pt_b["x"], pt_a["y"] - pt_b["y"])
-
-        if hands_results.multi_hand_landmarks:
-            detected_hands = []
-            for hand_idx, hand_lms in enumerate(hands_results.multi_hand_landmarks):
-                pts = [
-                    {"x": float(lm.x), "y": float(lm.y), "z": float(lm.z), "visibility": 1.0}
-                    for lm in hand_lms.landmark
-                ]
-                detected_hands.append({"pts": pts, "wrist": pts[0], "mcp": pts[9]})
-
-            def compute_arm_cost(h, side):
-                wrist = l_wrist if side == "left" else r_wrist
-                elbow = l_elbow if side == "left" else r_elbow
-                prev_pts = prev_l if side == "left" else prev_r
-
-                cost = 0.0
-                # 1. Pose Wrist distance
-                if wrist:
-                    cost += point_distance(h["wrist"], wrist) * 2.0
-                # 2. Forearm alignment (vector from elbow to wrist)
-                if elbow and wrist:
-                    arm_vec_x = wrist["x"] - elbow["x"]
-                    arm_vec_y = wrist["y"] - elbow["y"]
-                    h_vec_x = h["wrist"]["x"] - elbow["x"]
-                    h_vec_y = h["wrist"]["y"] - elbow["y"]
-                    cost += math.hypot(arm_vec_x - h_vec_x, arm_vec_y - h_vec_y) * 1.5
-                # 3. Temporal Tracking Memory: Hands cannot swap in a single frame
-                if prev_pts:
-                    cost += hand_distance(h["pts"], prev_pts) * 3.5
-                return cost
-
-            if len(detected_hands) == 1:
-                h0 = detected_hands[0]
-                cost_l = compute_arm_cost(h0, "left")
-                cost_r = compute_arm_cost(h0, "right")
-                if cost_l <= cost_r:
-                    raw_left_hand = h0["pts"]
-                else:
-                    raw_right_hand = h0["pts"]
-
-            elif len(detected_hands) >= 2:
-                h0, h1 = detected_hands[0], detected_hands[1]
-                # Option A: h0 is Left, h1 is Right
-                cost_a = compute_arm_cost(h0, "left") + compute_arm_cost(h1, "right")
-                # Option B: h0 is Right, h1 is Left
-                cost_b = compute_arm_cost(h0, "right") + compute_arm_cost(h1, "left")
-
-                if cost_a <= cost_b:
-                    raw_left_hand = h0["pts"]
-                    raw_right_hand = h1["pts"]
-                else:
-                    raw_left_hand = h1["pts"]
-                    raw_right_hand = h0["pts"]
-
-        # Synthesize fallback from Pose landmarks if a hand is temporarily missing
-        def synthesize_hand_from_pose(wrist_lm, index_lm):
-            if not wrist_lm or not index_lm:
-                return None
-            w_x, w_y, w_z = wrist_lm["x"], wrist_lm["y"], wrist_lm.get("z", 0.0)
-            i_x, i_y, i_z = index_lm["x"], index_lm["y"], index_lm.get("z", 0.0)
-            fwd_x, fwd_y, fwd_z = i_x - w_x, i_y - w_y, i_z - w_z
-            synth_pts = []
-            for k in range(21):
-                scale = (k % 4 + 1) * 0.25
-                synth_pts.append({
-                    "x": float(w_x + fwd_x * scale),
-                    "y": float(w_y + fwd_y * scale),
-                    "z": float(w_z + fwd_z * scale),
-                    "visibility": 0.8
-                })
-            return synth_pts
-
-        if not raw_left_hand and len(smooth_landmarks) >= 20 and smooth_landmarks[15].get("visibility", 1.0) > 0.4:
-            raw_left_hand = synthesize_hand_from_pose(smooth_landmarks[15], smooth_landmarks[19])
-
-        if not raw_right_hand and len(smooth_landmarks) >= 21 and smooth_landmarks[16].get("visibility", 1.0) > 0.4:
-            raw_right_hand = synthesize_hand_from_pose(smooth_landmarks[16], smooth_landmarks[20])
-
-        # Update persistent tracking memory
-        self.prev_hand_pts["left"] = raw_left_hand
-        self.prev_hand_pts["right"] = raw_right_hand
+        if results.right_hand_landmarks:
+            raw_right_hand = [
+                {"x": float(offset_x + lm.x * scale_x), "y": float(offset_y + lm.y * scale_y), "z": float(lm.z * scale_x), "visibility": float(getattr(lm, "visibility", 1.0))}
+                for lm in results.right_hand_landmarks.landmark
+            ]
 
         # 4. Smooth Hand Keypoints
         smooth_left_hand = self.smoother.smooth_hand(raw_left_hand, "left", timestamp) if raw_left_hand else None
         smooth_right_hand = self.smoother.smooth_hand(raw_right_hand, "right", timestamp) if raw_right_hand else None
 
         # 5. Extract Gestures & Biometrics (Finger Curls, Fist Score, Palm Normal)
-        left_hand_gesture = self.gesture_analyzer.analyze_hand(smooth_left_hand, "left") if smooth_left_hand else {
-            "detected": False, "is_fist": False, "fist_score": 0.0, "is_open": False, "open_score": 0.0,
-            "gesture": "UNKNOWN", "curls": {"thumb": 0.0, "index": 0.0, "middle": 0.0, "ring": 0.0, "pinky": 0.0},
-            "pinch_dist": 1.0, "palm_normal": {"x": 0.0, "y": 0.0, "z": -1.0}
-        }
+        if smooth_left_hand:
+            left_hand_gesture = self.gesture_analyzer.analyze_hand(smooth_left_hand, "left")
+        else:
+            left_hand_gesture = self._estimate_fallback_gesture(smooth_landmarks, "left")
 
-        right_hand_gesture = self.gesture_analyzer.analyze_hand(smooth_right_hand, "right") if smooth_right_hand else {
-            "detected": False, "is_fist": False, "fist_score": 0.0, "is_open": False, "open_score": 0.0,
-            "gesture": "UNKNOWN", "curls": {"thumb": 0.0, "index": 0.0, "middle": 0.0, "ring": 0.0, "pinky": 0.0},
-            "pinch_dist": 1.0, "palm_normal": {"x": 0.0, "y": 0.0, "z": -1.0}
-        }
+        if smooth_right_hand:
+            right_hand_gesture = self.gesture_analyzer.analyze_hand(smooth_right_hand, "right")
+        else:
+            right_hand_gesture = self._estimate_fallback_gesture(smooth_landmarks, "right")
 
         # 6. Extract 3D Head Orientation (True Pitch, Yaw, Roll, Forward & Up Vectors)
         head_orientation = None
@@ -376,7 +351,7 @@ class PoseEstimator:
             }
         }
 
-        seg_mask = pose_results.segmentation_mask if self.enable_segmentation else None
+        seg_mask = results.segmentation_mask if self.enable_segmentation else None
         return True, pose_data, seg_mask
 
     def draw_skeleton(self, frame_bgr: np.ndarray, pose_data: Optional[Dict[str, Any]]) -> np.ndarray:
@@ -514,7 +489,5 @@ class PoseEstimator:
 
     def close(self):
         """Releases MediaPipe resources."""
-        if hasattr(self, 'pose') and self.pose:
-            self.pose.close()
-        if hasattr(self, 'hands') and self.hands:
-            self.hands.close()
+        if hasattr(self, 'holistic') and self.holistic:
+            self.holistic.close()

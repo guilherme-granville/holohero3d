@@ -4,5 +4,5 @@ cd /d "%~dp0\..\vision-engine"
 echo ========================================================
 echo   INICIANDO VISION ENGINE (PYTHON 3D POSE TRACKING)
 echo ========================================================
-python main.py
+python main.py %*
 pause

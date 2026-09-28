@@ -34,6 +34,10 @@
         </div>
 
         <div class="dash-nav-right">
+            <button id="btn-random-model" class="hud-btn btn-glass" style="border-color: rgba(255, 170, 0, 0.45); color: #ffb833;" title="Sortear Personagem Aleatório Imediatamente">
+                <span class="btn-icon">🎲</span>
+                <span>SORTEAR HERÓI</span>
+            </button>
             <button id="btn-reset-camera" class="hud-btn btn-glass" title="Resetar Câmera da Apresentação">
                 <span class="btn-icon">🎥</span>
                 <span>RESETAR CÂMERA</span>
@@ -63,6 +67,40 @@
                     <div class="search-box">
                         <span class="search-icon">🔍</span>
                         <input type="text" id="model-search-input" placeholder="Buscar modelo por nome ou categoria..." class="custom-input">
+                    </div>
+                </div>
+
+                <!-- Auto Person Switcher Bar -->
+                <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 14px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 22px; filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.5));">🎲</span>
+                        <div>
+                            <div style="font-size: 13.5px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px;">Troca Automática ao Detectar Pessoa Diferente</div>
+                            <div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">Sorteia e carrega um novo personagem 3D aleatório toda vez que alguém diferente entrar na frente da câmera.</div>
+                        </div>
+                    </div>
+                    <label class="switch" style="flex-shrink: 0;" title="Ativar/desativar troca aleatória automática">
+                        <input type="checkbox" id="chk-auto-person" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <!-- Multi-Person Selection Bar -->
+                <div id="people-selection-panel" style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(0, 240, 255, 0.3); border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 20px; filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.6));">🎯</span>
+                            <div>
+                                <div style="font-size: 13.5px; font-weight: 700; color: #fff;">SELEÇÃO DE PARTICIPANTE (QUEM O 3D DEVE SEGUIR)</div>
+                                <div style="font-size: 11px; color: #94a3b8; margin-top: 1px;">Quando houver várias pessoas em cena, clique abaixo ou na janela da câmera para travar o tracking em quem desejar.</div>
+                            </div>
+                        </div>
+                        <span id="people-count-badge" class="badge-value" style="font-size: 11px;">1 em cena</span>
+                    </div>
+
+                    <!-- Dynamic People Buttons -->
+                    <div id="people-buttons-container" style="display: flex; flex-wrap: wrap; gap: 8px;">
+                        <button class="btn-action active-target" data-target="auto" style="padding: 7px 14px; font-size: 11.5px; border-radius: 8px; border: 1px solid #00f0ff; background: rgba(0, 240, 255, 0.15); color: #00f0ff; cursor: pointer;">🌟 Modo Auto (Pessoa Central)</button>
                     </div>
                 </div>
 

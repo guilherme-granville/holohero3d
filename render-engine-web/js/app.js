@@ -85,10 +85,6 @@ class HoloHeroApp {
             this.lastPoseData = data;
             this.lastPoseTime = performance.now();
             this.isTracking = true;
-            const character = this.getActiveCharacter();
-            if (character) {
-                this.boneMapper.retarget(character, data);
-            }
         };
 
         this.streamClient.onPoseLost = () => {
@@ -98,6 +94,12 @@ class HoloHeroApp {
 
         this.streamClient.onPowerTrigger = (effectId) => {
             this.triggerPower(effectId);
+        };
+
+        this.streamClient.onModelChange = (model) => {
+            if (this.ui) {
+                this.ui.selectModel(model);
+            }
         };
 
         this.streamClient.connect();

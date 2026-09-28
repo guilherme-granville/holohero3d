@@ -84,6 +84,58 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Hero Toast Notification */
+        #hero-toast {
+            position: fixed;
+            top: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(0);
+            background: rgba(10, 15, 30, 0.88);
+            border: 1px solid rgba(0, 240, 255, 0.6);
+            backdrop-filter: blur(16px);
+            padding: 12px 28px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: 'Outfit', sans-serif;
+            box-shadow: 0 8px 32px rgba(0, 240, 255, 0.25), inset 0 0 15px rgba(0, 240, 255, 0.15);
+            z-index: 100;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            pointer-events: none;
+        }
+
+        #hero-toast.hero-toast-hidden {
+            opacity: 0;
+            transform: translateX(-50%) translateY(-30px) scale(0.95);
+        }
+
+        .hero-toast-icon {
+            font-size: 20px;
+            animation: pulse-icon 1s infinite alternate;
+        }
+
+        .hero-toast-label {
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: #00f0ff;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .hero-toast-name {
+            font-size: 16px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: 1px;
+            text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
+        }
+
+        @keyframes pulse-icon {
+            0% { transform: scale(1); filter: drop-shadow(0 0 2px #00f0ff); }
+            100% { transform: scale(1.2); filter: drop-shadow(0 0 10px #00f0ff); }
+        }
     </style>
 
     <!-- Three.js Core & Loaders -->
@@ -94,6 +146,13 @@
 <body>
     <!-- Clean 3D Canvas -->
     <div id="canvas-container"></div>
+
+    <!-- Hero Notification Toast on Screen -->
+    <div id="hero-toast" class="hero-toast-hidden">
+        <span class="hero-toast-icon">⚡</span>
+        <span class="hero-toast-label">NOVO HERÓI DETECTADO:</span>
+        <span id="hero-toast-name" class="hero-toast-name">SPIDER-MAN</span>
+    </div>
 
     <!-- Minimalist initial loading spinner (auto-hides when model is ready) -->
     <div id="loader-overlay">

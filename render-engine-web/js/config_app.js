@@ -27,6 +27,10 @@ class ConfigDashboardApp {
 
         // Action Buttons
         this.btnLaunchPresentation = document.getElementById("btn-launch-presentation");
+        this.btnRandomModel = document.getElementById("btn-random-model");
+        this.chkAutoPerson = document.getElementById("chk-auto-person");
+        this.peopleButtonsContainer = document.getElementById("people-buttons-container");
+        this.peopleCountBadge = document.getElementById("people-count-badge");
         this.btnQuickPower = document.getElementById("btn-quick-power");
         this.btnTestPower = document.getElementById("btn-test-power");
         this.btnResetCamera = document.getElementById("btn-reset-camera");
@@ -112,9 +116,44 @@ class ConfigDashboardApp {
                 this.hudTracking.style.color = "var(--primary-gold)";
             }
         };
+
+        // Listen for model changes synced from vision engine or other screens
+        this.syncBridge.on("onModelChange", (model) => {
+            if (!model) return;
+            this.activeModel = model;
+            if (this.activeCharName) {
+                this.activeCharName.textContent = model.name;
+            }
+            this.renderModelsGrid();
+        });
+
+        this.streamClient.onCustomMessage = (msg) => {
+            if (msg.type === "AUTO_RANDOM_STATUS" && this.chkAutoPerson) {
+                this.chkAutoPerson.checked = !!msg.enabled;
+            } else if (msg.type === "PEOPLE_IN_SCENE") {
+                this.updatePeopleSelection(msg.people, msg.selected_id);
+            }
+        };
     }
 
     setupEventListeners() {
+        // Random Model Button
+        if (this.btnRandomModel) {
+            this.btnRandomModel.addEventListener("click", () => this.requestRandomModel());
+        }
+
+        // Auto Person Switch Toggle
+        if (this.chkAutoPerson) {
+            this.chkAutoPerson.addEventListener("change", (e) => {
+                const enabled = e.target.checked;
+                this.streamClient.sendMessage({
+                    type: "SET_AUTO_RANDOM",
+                    enabled: enabled
+                });
+                this.showToast(enabled ? "🎲 Troca automática por pessoa ATIVADA" : "⏸️ Troca automática por pessoa DESATIVADA");
+            });
+        }
+
         // Launch Presentation Window
         if (this.btnLaunchPresentation) {
             this.btnLaunchPresentation.addEventListener("click", () => {
@@ -414,6 +453,17 @@ class ConfigDashboardApp {
         this.renderModelsGrid();
     }
 
+    requestRandomModel() {
+        if (this.modelsList && this.modelsList.length > 0) {
+            const curId = this.activeModel ? this.activeModel.id : null;
+            const candidates = this.modelsList.filter(m => m.id !== curId);
+            const chosen = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : this.modelsList[0];
+            this.selectModel(chosen);
+        } else {
+            this.streamClient.sendMessage({ type: "GET_RANDOM_MODEL" });
+        }
+    }
+
     handleCustomFile(file) {
         const customModel = {
             id: file.name,
@@ -433,6 +483,49 @@ class ConfigDashboardApp {
         const effect = this.settingsState.effect || "cosmic_burst";
         this.syncBridge.broadcastPower(effect);
         this.showToast(`💥 Superpoder disparado no Telão!`);
+    }
+
+    updatePeopleSelection(people = [], selectedId = null) {
+        if (!this.peopleButtonsContainer) return;
+
+        if (this.peopleCountBadge) {
+            const count = people.length;
+            this.peopleCountBadge.textContent = count === 1 ? "1 em cena" : `${count} em cena`;
+        }
+
+        this.peopleButtonsContainer.innerHTML = "";
+
+        // Auto Mode Button
+        const isAuto = (selectedId === null || selectedId === undefined);
+        const btnAuto = document.createElement("button");
+        btnAuto.className = "btn-action" + (isAuto ? " active-target" : "");
+        btnAuto.style.cssText = "padding: 7px 14px; font-size: 11.5px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid " + 
+            (isAuto ? "#00f0ff" : "rgba(255,255,255,0.15)") + "; background: " + 
+            (isAuto ? "rgba(0, 240, 255, 0.22)" : "rgba(255,255,255,0.05)") + "; color: " + 
+            (isAuto ? "#00f0ff" : "#cbd5e1") + "; box-shadow: " + (isAuto ? "0 0 10px rgba(0,240,255,0.3)" : "none");
+        btnAuto.innerHTML = `🌟 Modo Auto (Pessoa Central) ${isAuto ? "✓" : ""}`;
+        btnAuto.addEventListener("click", () => {
+            this.streamClient.sendMessage({ type: "SELECT_PERSON", person_id: null });
+            this.showToast("🌟 Modo Auto ativado: rastreando participante central");
+        });
+        this.peopleButtonsContainer.appendChild(btnAuto);
+
+        // Candidate Person Buttons
+        people.forEach(p => {
+            const isSelected = (selectedId === p.id);
+            const btn = document.createElement("button");
+            btn.className = "btn-action" + (isSelected ? " active-target" : "");
+            btn.style.cssText = "padding: 7px 14px; font-size: 11.5px; border-radius: 8px; cursor: pointer; transition: all 0.2s; border: 1px solid " + 
+                (isSelected ? "#00ff88" : "rgba(255,255,255,0.15)") + "; background: " + 
+                (isSelected ? "rgba(0, 255, 136, 0.25)" : "rgba(255,255,255,0.05)") + "; color: " + 
+                (isSelected ? "#00ff88" : "#cbd5e1") + "; box-shadow: " + (isSelected ? "0 0 10px rgba(0,255,136,0.35)" : "none");
+            btn.innerHTML = `🎯 ${p.label} ${isSelected ? "✓ TRAVADA" : ""}`;
+            btn.addEventListener("click", () => {
+                this.streamClient.sendMessage({ type: "SELECT_PERSON", person_id: p.id });
+                this.showToast(`🎯 Foco travado em: ${p.label}`);
+            });
+            this.peopleButtonsContainer.appendChild(btn);
+        });
     }
 
     loadSavedSettings() {

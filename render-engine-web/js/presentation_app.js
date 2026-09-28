@@ -8,6 +8,9 @@ class PresentationApp {
     constructor() {
         this.container = document.getElementById("canvas-container");
         this.loaderOverlay = document.getElementById("loader-overlay");
+        this.heroToast = document.getElementById("hero-toast");
+        this.heroToastName = document.getElementById("hero-toast-name");
+        this.heroToastTimer = null;
         
         this.scene = null;
         this.camera = null;
@@ -73,10 +76,6 @@ class PresentationApp {
             this.lastPoseData = data;
             this.lastPoseTime = performance.now();
             this.isTracking = true;
-            const character = this.getActiveCharacter();
-            if (character) {
-                this.boneMapper.retarget(character, data);
-            }
         };
 
         this.streamClient.onPoseLost = () => {
@@ -169,6 +168,10 @@ class PresentationApp {
         if (!model) return;
         this.showLoader(true);
 
+        if (model.name) {
+            this.showHeroToast(model.name);
+        }
+
         if (model.type === "procedural") {
             const char = this.characterLoader.createProceduralHero(model.id);
             this.activeCharacter = char;
@@ -184,6 +187,20 @@ class PresentationApp {
                 this.showLoader(false);
             });
         }
+    }
+
+    showHeroToast(name) {
+        if (!this.heroToast || !name) return;
+        if (this.heroToastName) {
+            this.heroToastName.textContent = name.toUpperCase();
+        }
+        this.heroToast.classList.remove("hero-toast-hidden");
+        if (this.heroToastTimer) clearTimeout(this.heroToastTimer);
+        this.heroToastTimer = setTimeout(() => {
+            if (this.heroToast) {
+                this.heroToast.classList.add("hero-toast-hidden");
+            }
+        }, 3400);
     }
 
     applySettings(settings) {

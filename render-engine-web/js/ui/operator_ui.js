@@ -19,6 +19,7 @@ class OperatorUI {
         this.btnFullscreen = document.getElementById("btn-toggle-fullscreen");
         this.btnCinema = document.getElementById("btn-toggle-cinema");
         this.btnQuickPower = document.getElementById("btn-quick-power");
+        this.btnQuickRandom = document.getElementById("btn-quick-random");
         this.btnQuickImport = document.getElementById("btn-quick-import");
         this.btnTestPower = document.getElementById("btn-test-power");
 
@@ -98,6 +99,9 @@ class OperatorUI {
         }
         if (this.btnQuickPower) {
             this.btnQuickPower.addEventListener("click", () => this.app.triggerPower());
+        }
+        if (this.btnQuickRandom) {
+            this.btnQuickRandom.addEventListener("click", () => this.rollRandomModel());
         }
         if (this.btnTestPower) {
             this.btnTestPower.addEventListener("click", () => this.app.triggerPower());
@@ -253,6 +257,8 @@ class OperatorUI {
             if (key === " " || e.code === "Space") {
                 e.preventDefault();
                 this.app.triggerPower();
+            } else if (key === "m") {
+                this.rollRandomModel();
             } else if (key === "c") {
                 this.openModal(this.charModal);
             } else if (key === "o") {
@@ -266,6 +272,14 @@ class OperatorUI {
                 this.closeModal(this.settingsModal);
             }
         });
+    }
+
+    rollRandomModel() {
+        if (!this.modelsList || this.modelsList.length === 0) return;
+        const candidates = this.modelsList.filter(m => m.id !== this.activeModelId);
+        const chosen = candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : this.modelsList[0];
+        this.selectModel(chosen);
+        this.showToast(`🎲 Sorteado: ${chosen.name}!`);
     }
 
     openModal(modal) {

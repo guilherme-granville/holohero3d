@@ -22,7 +22,7 @@ class ThreadedCamera:
         device_index: int = 0,
         width: int = 1280,
         height: int = 720,
-        target_fps: int = 60,
+        target_fps: int = 30,
         api_preference: str = "DSHOW"
     ):
         self.device_index = device_index
@@ -49,31 +49,96 @@ class ThreadedCamera:
         self.thread: Optional[threading.Thread] = None
         self.actual_fps: float = 0.0
 
+    def _try_open(self, index: int, backend: int) -> Optional[cv2.VideoCapture]:
+        """Attempts to open a camera index and backend, setting resolution and verifying first frame."""
+        cap = None
+        try:
+            cap = cv2.VideoCapture(index, backend)
+            if not cap.isOpened():
+                cap.release()
+                return None
+            
+            if backend in (cv2.CAP_DSHOW, cv2.CAP_ANY):
+                try:
+                    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
+                except Exception:
+                    pass
+
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+            cap.set(cv2.CAP_PROP_FPS, self.target_fps)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+            # Test reading frames to confirm stream
+            ret, frame = cap.read()
+            if not ret or frame is None:
+                cap.release()
+                return None
+
+            # If requested resolution is 720p/1080p but hardware is capped at <= 13 FPS (USB 2.0 YUY2 bottleneck):
+            if self.target_fps >= 25 and self.width >= 1280:
+                t0 = time.time()
+                for _ in range(3):
+                    cap.read()
+                elapsed = time.time() - t0
+                if elapsed > 0.22:
+                    logger.warning(
+                        f"Webcam hardware at {self.width}x{self.height} is limited to ~{3.0/elapsed:.1f} FPS "
+                        "(hardware USB 2.0 uncompressed bottleneck). Auto-switching to 848x480 (16:9 widescreen) for smooth 30 FPS!"
+                    )
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 848)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                    self.width = 848
+                    self.height = 480
+
+            return cap
+        except Exception as e:
+            logger.debug(f"Failed opening camera index {index} with backend {backend}: {e}")
+            if cap and cap.isOpened():
+                cap.release()
+            return None
+
     def start(self) -> "ThreadedCamera":
         """Opens camera and begins background capture thread."""
         logger.info(f"Opening camera index {self.device_index} (Backend: {self.api_preference_str})...")
-        self.cap = cv2.VideoCapture(self.device_index, self.backend)
         
-        if not self.cap.isOpened():
-            # Fallback to default backend
-            logger.warning(f"Backend {self.api_preference_str} failed to open camera {self.device_index}, attempting fallback...")
-            fallback_backend = cv2.CAP_DSHOW if self.backend == cv2.CAP_MSMF else cv2.CAP_MSMF
-            self.cap = cv2.VideoCapture(self.device_index, fallback_backend)
-            if not self.cap.isOpened():
-                self.cap = cv2.VideoCapture(self.device_index)
+        # 1. Try requested index and backend
+        self.cap = self._try_open(self.device_index, self.backend)
 
-        if self.backend == cv2.CAP_DSHOW:
-            # For DirectShow on Windows, set FOURCC first
-            try:
-                self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*'MJPG'))
-            except Exception:
-                pass
+        # 2. Try requested index with alternative backends (DSHOW first, then ANY, MSMF)
+        if self.cap is None:
+            for alt_backend, name in [(cv2.CAP_DSHOW, "DSHOW"), (cv2.CAP_ANY, "ANY"), (cv2.CAP_MSMF, "MSMF")]:
+                if alt_backend != self.backend:
+                    logger.info(f"Attempting fallback to backend {name} for device index {self.device_index}...")
+                    self.cap = self._try_open(self.device_index, alt_backend)
+                    if self.cap is not None:
+                        self.backend = alt_backend
+                        self.api_preference_str = name
+                        break
 
-        # Request resolution and target frame rate
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FPS, self.target_fps)
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        # 3. If device_index is still not opened, scan other indices [0, 1, 2, 3]
+        if self.cap is None:
+            logger.warning(f"Could not open camera at index {self.device_index}. Scanning other camera indices...")
+            candidates = [i for i in [0, 1, 2, 3] if i != self.device_index]
+            for cand in candidates:
+                for alt_backend, name in [(cv2.CAP_DSHOW, "DSHOW"), (cv2.CAP_ANY, "ANY")]:
+                    logger.info(f"Trying alternative camera index {cand} (Backend: {name})...")
+                    self.cap = self._try_open(cand, alt_backend)
+                    if self.cap is not None:
+                        logger.info(f"Successfully found working camera on index {cand} with backend {name}!")
+                        self.device_index = cand
+                        self.backend = alt_backend
+                        self.api_preference_str = name
+                        break
+                if self.cap is not None:
+                    break
+
+        if self.cap is None or not self.cap.isOpened():
+            raise RuntimeError(
+                f"Nenhuma webcam funcional foi encontrada nos índices testados. "
+                f"Verifique se o cabo USB da câmera está firme, se a câmera não está em uso por outro aplicativo "
+                f"(ex: Windows Camera, Zoom, Teams, navegador) e se o Windows permite acesso à câmera em Configurações > Privacidade > Câmera."
+            )
 
         # Query actual negotiated settings
         actual_w = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
